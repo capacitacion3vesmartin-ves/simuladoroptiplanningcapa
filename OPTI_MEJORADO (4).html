@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-gray-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optiplanning - Optimizador de Corte de Madera y Melamina</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        winbg: '#d4d0c8',
+                        winborder: '#808080',
+                        winblue: '#000080',
+                        winblue2: '#103060',
+                        terracotta: '#bd5c18',
+                        terracottalight: '#f97316',
+                        forestgreen: '#133e2c',
+                        mintgreen: '#86efac',
+                        canvasbg: '#1a1e24'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Segoe UI', 'Inter', -apple-system, sans-serif;
+            user-select: none;
+        }
+
+        /* Classic Win32 / Retro Industrial aesthetic touches */
+        .win-border-raised {
+            border-top: 2px solid #ffffff;
+            border-left: 2px solid #ffffff;
+            border-bottom: 2px solid #808080;
+            border-right: 2px solid #808080;
+        }
+
+        .win-border-sunken {
+            border-top: 2px solid #808080;
+            border-left: 2px solid #808080;
+            border-bottom: 2px solid #ffffff;
+            border-right: 2px solid #ffffff;
+            background-color: #ffffff;
+        }
+
+        .win-button {
+            background-color: #e1e1e1;
+            border-top: 1px solid #ffffff;
+            border-left: 1px solid #ffffff;
+            border-bottom: 1px solid #707070;
+            border-right: 1px solid #707070;
+            box-shadow: inset -1px -1px #00000020;
+        }
+
+        .win-button:active {
+            border-top: 1px solid #707070;
+            border-left: 1px solid #707070;
+            border-bottom: 1px solid #ffffff;
+            border-right: 1px solid #ffffff;
+            padding-top: 1px;
+            padding-left: 1px;
+        }
+
+        /* Dot grid canvas background EXACTLY as in reference image */
+        .dark-dot-grid {
+            background-color: #1a1e24;
+            background-image: radial-gradient(#384050 1.2px, transparent 1.2px);
+            background-size: 16px 16px;
+        }
+
+        /* Active Tableros Tab pill styling matching reference image */
+        .tablero-pill-active {
+            background-color: #0e2a47;
+            color: #ffffff;
+            border: 1px solid #2563eb;
+            font-weight: 700;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .tablero-pill-inactive {
+            background-color: #e2e8f0;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+        }
+
+        .tablero-pill-inactive:hover {
+            background-color: #cbd5e1;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* Printable area rules */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printable-area, #printable-area * {
+                visibility: visible;
+            }
+            #printable-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden text-sm bg-slate-200">
+
+    <!-- Top Application Window Bar -->
+    <header class="bg-winblue text-white flex items-center justify-between px-3 py-1 text-xs select-none shadow-sm">
+        <div class="flex items-center space-x-2 font-bold tracking-wide">
+            <a href="https://capacitacion3vesmartin-ves.github.io/campuscapacitacion/" class="bg-white/10 hover:bg-white/25 border border-white/40 text-white px-2.5 py-0.5 rounded font-semibold flex items-center space-x-1.5 mr-2 no-underline" title="Volver al Campus">
+                <i class="fa-solid fa-arrow-left"></i><span>Volver al Campus</span>
+            </a>
+            <i class="fa-solid fa-shapes text-amber-400"></i>
+            <span>Optiplanning v4.2 - [Optimizador de Corte de Tableros]</span>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="toggleFullscreen()" class="hover:bg-blue-800 px-1.5 py-0.5 rounded text-gray-200" title="Pantalla Completa">
+                <i class="fa-solid fa-expand"></i>
+            </button>
+            <span class="text-blue-300">|</span>
+            <span class="text-gray-300 font-mono" id="clock-display">00:00:00</span>
+        </div>
+    </header>
+
+    <!-- Menu Bar -->
+    <nav class="bg-gray-100 border-b border-gray-300 px-2 py-0.5 flex text-xs text-gray-800 space-x-4">
+        <div class="relative group cursor-pointer hover:bg-blue-100 px-2 py-0.5 rounded">
+            <span><u>A</u>rchivo</span>
+            <div class="hidden group-hover:block absolute top-full left-0 bg-white border border-gray-300 shadow-lg py-1 z-50 w-48 text-gray-800">
+                <a href="#" onclick="presetSampleData('wardrobe')" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white"><i class="fa-solid fa-folder-open mr-2"></i>Cargar Ejemplo: Ropero</a>
+                <a href="#" onclick="presetSampleData('kitchen')" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white"><i class="fa-solid fa-utensils mr-2"></i>Cargar Ejemplo: Cocina</a>
+                <hr class="my-1 border-gray-200">
+                <a href="#" onclick="exportJSON()" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white"><i class="fa-solid fa-download mr-2"></i>Guardar Proyecto (.json)</a>
+                <a href="#" onclick="triggerJSONImport()" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white"><i class="fa-solid fa-upload mr-2"></i>Abrir Proyecto (.json)</a>
+                <hr class="my-1 border-gray-200">
+                <a href="#" onclick="exportCSV()" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white"><i class="fa-solid fa-file-excel mr-2"></i>Exportar Lista (.csv)</a>
+                <a href="#" onclick="window.print()" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white"><i class="fa-solid fa-print mr-2"></i>Imprimir Reporte</a>
+            </div>
+        </div>
+        <div class="relative group cursor-pointer hover:bg-blue-100 px-2 py-0.5 rounded">
+            <span><u>M</u>odificar</span>
+            <div class="hidden group-hover:block absolute top-full left-0 bg-white border border-gray-300 shadow-lg py-1 z-50 w-48 text-gray-800">
+                <a href="#" onclick="addNewRow()" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white"><i class="fa-solid fa-plus mr-2 text-green-600"></i>Añadir Fila</a>
+                <a href="#" onclick="deleteSelectedRow()" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white"><i class="fa-solid fa-minus mr-2 text-red-600"></i>Eliminar Fila</a>
+                <a href="#" onclick="clearAllRows()" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white"><i class="fa-solid fa-trash mr-2 text-gray-500"></i>Limpiar Todo</a>
+            </div>
+        </div>
+        <div class="relative group cursor-pointer hover:bg-blue-100 px-2 py-0.5 rounded">
+            <span><u>P</u>arámetros</span>
+            <div class="hidden group-hover:block absolute top-full left-0 bg-white border border-gray-300 shadow-lg py-1 z-50 w-52 text-gray-800">
+                <a href="#" onclick="switchTab('tab-board')" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white"><i class="fa-solid fa-sliders mr-2"></i>Configurar Tablero & Kerf</a>
+            </div>
+        </div>
+        <div class="relative group cursor-pointer hover:bg-blue-100 px-2 py-0.5 rounded">
+            <span><u>S</u>olución</span>
+            <div class="hidden group-hover:block absolute top-full left-0 bg-white border border-gray-300 shadow-lg py-1 z-50 w-48 text-gray-800">
+                <a href="#" onclick="runOptimization()" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white font-bold"><i class="fa-solid fa-play mr-2 text-green-600"></i>Calcular Optimización</a>
+                <a href="#" onclick="switchTab('tab-solution')" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white"><i class="fa-solid fa-border-all mr-2"></i>Ver Esquemas de Corte</a>
+                <a href="#" onclick="switchTab('tab-report')" class="block px-4 py-1.5 hover:bg-blue-600 hover:text-white"><i class="fa-solid fa-chart-pie mr-2"></i>Ver Estadísticas y Merma</a>
+            </div>
+        </div>
+        <div class="hover:bg-blue-100 px-2 py-0.5 rounded cursor-pointer" onclick="showAboutModal()"><u>?</u> Ayuda</div>
+    </nav>
+
+    <!-- Action Toolbar -->
+    <div class="bg-gray-200 border-b border-gray-300 p-1.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center space-x-1.5">
+            <button onclick="addNewRow()" class="win-button px-2.5 py-1 flex items-center space-x-1 text-gray-800 rounded">
+                <i class="fa-solid fa-plus text-green-600"></i>
+                <span class="font-semibold">Añadir Fila</span>
+            </button>
+            <button onclick="deleteSelectedRow()" class="win-button px-2.5 py-1 flex items-center space-x-1 text-gray-800 rounded">
+                <i class="fa-solid fa-minus text-red-600"></i>
+                <span>Eliminar Fila</span>
+            </button>
+            <span class="h-4 border-r border-gray-400 mx-1"></span>
+            
+            <div class="flex items-center space-x-1 bg-white border border-gray-300 px-2 py-0.5 rounded">
+                <label for="tb-kerf-quick" class="text-gray-600 font-semibold flex items-center space-x-1">
+                    <i class="fa-solid fa-compact-disc text-amber-600"></i>
+                    <span>Disco (Kerf):</span>
+                </label>
+                <input id="tb-kerf-quick" type="number" step="0.5" min="0" max="20" value="5.0" onchange="updateKerfFromQuick(this.value)" class="w-12 text-center font-bold text-blue-900 focus:outline-none">
+                <span class="text-gray-500">mm</span>
+            </div>
+
+            <span class="h-4 border-r border-gray-400 mx-1"></span>
+
+            <button onclick="presetSampleData('wardrobe')" class="win-button px-2 py-1 text-gray-700 rounded hover:bg-gray-100" title="Cargar datos de ropero de muestra">
+                <i class="fa-solid fa-box-open text-blue-600 mr-1"></i> Ropero
+            </button>
+            <button onclick="presetSampleData('kitchen')" class="win-button px-2 py-1 text-gray-700 rounded hover:bg-gray-100" title="Cargar datos de cocina de muestra">
+                <i class="fa-solid fa-kitchen-set text-orange-600 mr-1"></i> Cocina
+            </button>
+            <button onclick="clearAllRows()" class="win-button px-2 py-1 text-gray-700 rounded hover:bg-gray-100" title="Limpiar todas las filas">
+                <i class="fa-solid fa-trash-can text-gray-500 mr-1"></i> Limpiar
+            </button>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <button onclick="runOptimization()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded shadow flex items-center space-x-2 transition-transform active:scale-95">
+                <i class="fa-solid fa-play text-amber-300"></i>
+                <span class="tracking-wide">EJECUTAR / OPTIMIZAR</span>
+            </button>
+            <button onclick="exportJSON()" class="win-button px-2 py-1 text-gray-700 rounded" title="Guardar proyecto JSON">
+                <i class="fa-solid fa-floppy-disk text-blue-600"></i>
+            </button>
+            <button onclick="triggerJSONImport()" class="win-button px-2 py-1 text-gray-700 rounded" title="Cargar proyecto JSON">
+                <i class="fa-solid fa-folder-open text-amber-600"></i>
+            </button>
+            <input type="file" id="json-input" accept=".json" class="hidden" onchange="importJSON(event)">
+        </div>
+    </div>
+
+    <!-- Main Tabs Header Strip -->
+    <div class="bg-gray-300 border-b border-gray-400 px-2 pt-1 flex space-x-1 text-xs select-none">
+        <button id="nav-tab-input" onclick="switchTab('tab-input')" class="tab-btn bg-white border-t-2 border-x border-gray-400 border-t-blue-700 px-4 py-1.5 font-bold text-gray-800 rounded-t flex items-center space-x-1.5">
+            <i class="fa-solid fa-table text-blue-600"></i>
+            <span>1. Inserir / Modificar</span>
+        </button>
+        <button id="nav-tab-board" onclick="switchTab('tab-board')" class="tab-btn bg-gray-200 border-t border-x border-gray-400 px-4 py-1.5 font-medium text-gray-600 rounded-t hover:bg-gray-100 flex items-center space-x-1.5">
+            <i class="fa-solid fa-layer-group text-amber-600"></i>
+            <span>2. Seleccionar Tablero</span>
+        </button>
+        <button id="nav-tab-solution" onclick="switchTab('tab-solution')" class="tab-btn bg-gray-200 border-t border-x border-gray-400 px-4 py-1.5 font-medium text-gray-600 rounded-t hover:bg-gray-100 flex items-center space-x-1.5">
+            <i class="fa-solid fa-square-poll-vertical text-emerald-600"></i>
+            <span>3. Solución / Vista Previa de Corte</span>
+        </button>
+        <button id="nav-tab-report" onclick="switchTab('tab-report')" class="tab-btn bg-gray-200 border-t border-x border-gray-400 px-4 py-1.5 font-medium text-gray-600 rounded-t hover:bg-gray-100 flex items-center space-x-1.5">
+            <i class="fa-solid fa-file-invoice text-purple-600"></i>
+            <span>4. Informe / Estadística</span>
+        </button>
+    </div>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-1 relative overflow-hidden bg-white">
+
+        <!-- ==================== TAB 1: INSERIR / MODIFICAR ==================== -->
+        <section id="tab-input" class="tab-content absolute inset-0 flex flex-col p-3 bg-slate-100 overflow-auto">
+            <div class="mb-2 flex items-center justify-between bg-amber-50 border-l-4 border-amber-500 p-2.5 rounded shadow-sm">
+                <div class="flex items-center space-x-2 text-xs text-amber-900">
+                    <i class="fa-solid fa-circle-info text-amber-600 text-base"></i>
+                    <span>Ingrese la lista de piezas a cortar. Utilice <strong>Veta</strong>: <code class="bg-amber-100 px-1 rounded">0=Sin Veta (Rotable)</code>, <code class="bg-amber-100 px-1 rounded">1=Veta en Largura (X)</code>, <code class="bg-amber-100 px-1 rounded">2=Veta en Anchura (Y)</code>.</span>
+                </div>
+                <div class="text-xs font-semibold text-gray-600">
+                    Total Piezas: <span id="summary-total-pieces" class="text-blue-700 font-bold">0</span>
+                </div>
+            </div>
+
+            <!-- Spreadsheet Grid Container -->
+            <div class="flex-1 bg-white border border-gray-300 rounded shadow-inner overflow-auto">
+                <table class="w-full text-left border-collapse text-xs" id="pieces-table">
+                    <thead>
+                        <tr class="bg-gray-200 text-gray-700 font-bold uppercase sticky top-0 border-b border-gray-300 z-10 select-none">
+                            <th class="p-2 border-r border-gray-300 w-10 text-center">#</th>
+                            <th class="p-2 border-r border-gray-300 w-20 text-center">C. Mínima</th>
+                            <th class="p-2 border-r border-gray-300 w-28 text-center">Largura (mm)</th>
+                            <th class="p-2 border-r border-gray-300 w-28 text-center">Anchura (mm)</th>
+                            <th class="p-2 border-r border-gray-300 w-32 text-center">Veta</th>
+                            <th class="p-2 border-r border-gray-300 w-20 text-center" title="Tapacanto Superior">M. Sup</th>
+                            <th class="p-2 border-r border-gray-300 w-20 text-center" title="Tapacanto Inferior">M. Inf</th>
+                            <th class="p-2 border-r border-gray-300 w-20 text-center" title="Tapacanto Izquierdo">M. Izq</th>
+                            <th class="p-2 border-r border-gray-300 w-20 text-center" title="Tapacanto Derecho">M. Der</th>
+                            <th class="p-2 border-r border-gray-300 min-w-[160px]">I Descripción</th>
+                            <th class="p-2 border-r border-gray-300 min-w-[120px]">II Descripción</th>
+                            <th class="p-2 w-12 text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pieces-table-body" class="divide-y divide-gray-200 font-mono">
+                        <!-- Rows dynamically populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-2 flex items-center justify-between text-xs text-gray-600">
+                <div class="flex space-x-2">
+                    <button onclick="addNewRow()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold px-3 py-1 rounded border border-gray-400">
+                        <i class="fa-solid fa-plus text-green-600 mr-1"></i> Añadir Fila [Enter]
+                    </button>
+                    <button onclick="presetSampleData('wardrobe')" class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1 rounded border border-blue-300 font-medium">
+                        Restablecer Datos Ropero
+                    </button>
+                </div>
+                <div class="text-gray-500">
+                    Haga doble clic en cualquier celda para editar rápidamente.
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 2: SELECCIONAR TABLERO ==================== -->
+        <section id="tab-board" class="tab-content absolute inset-0 hidden p-6 bg-slate-50 overflow-auto">
+            <div class="max-w-4xl mx-auto bg-white border border-gray-300 rounded-lg shadow-md p-6 space-y-6">
+                <div class="border-b border-gray-200 pb-3 flex items-center justify-between">
+                    <h2 class="text-lg font-bold text-gray-800 flex items-center space-x-2">
+                        <i class="fa-solid fa-layer-group text-amber-600"></i>
+                        <span>Parámetros del Tablero / Plancha Base</span>
+                    </h2>
+                    <span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-semibold">Configuración de Materia Prima</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Board Dimensions -->
+                    <div class="space-y-4 bg-slate-50 p-4 rounded-md border border-slate-200">
+                        <h3 class="font-bold text-gray-700 text-sm flex items-center space-x-1.5">
+                            <i class="fa-solid fa-ruler-combined text-blue-600"></i>
+                            <span>Dimensiones de la Plancha</span>
+                        </h3>
+                        
+                        <div>
+                            <label for="board-length" class="block text-xs font-semibold text-gray-600 mb-1">
+                                Largura Nominal (Eje X) [mm]:
+                            </label>
+                            <input type="number" id="board-length" value="2440" min="500" max="6000" class="w-full border border-gray-300 p-2 rounded text-sm font-bold text-blue-900 focus:ring-2 focus:ring-blue-500">
+                            <p class="text-[11px] text-gray-500 mt-0.5">Dimensión estándar (ej: 2440 mm, 2750 mm)</p>
+                        </div>
+
+                        <div>
+                            <label for="board-width" class="block text-xs font-semibold text-gray-600 mb-1">
+                                Anchura Nominal (Eje Y) [mm]:
+                            </label>
+                            <input type="number" id="board-width" value="1830" min="500" max="6000" class="w-full border border-gray-300 p-2 rounded text-sm font-bold text-blue-900 focus:ring-2 focus:ring-blue-500">
+                            <p class="text-[11px] text-gray-500 mt-0.5">Dimensión estándar (ej: 1830 mm, 2140 mm, 1520 mm)</p>
+                        </div>
+
+                        <div>
+                            <label for="board-trim" class="block text-xs font-semibold text-gray-600 mb-1">
+                                Refilo de Perímetro / Limpieza de Borde [mm]:
+                            </label>
+                            <input type="number" id="board-trim" value="10" min="0" max="100" class="w-full border border-gray-300 p-2 rounded text-sm font-semibold text-gray-800">
+                            <p class="text-[11px] text-gray-500 mt-0.5">Margen descartado en cada lado para sanear cantos dañados.</p>
+                        </div>
+                    </div>
+
+                    <!-- Machine Saw Blade & Material settings -->
+                    <div class="space-y-4 bg-slate-50 p-4 rounded-md border border-slate-200">
+                        <h3 class="font-bold text-gray-700 text-sm flex items-center space-x-1.5">
+                            <i class="fa-solid fa-gear text-amber-600"></i>
+                            <span>Corte y Material</span>
+                        </h3>
+
+                        <div>
+                            <label for="board-kerf" class="block text-xs font-semibold text-gray-600 mb-1">
+                                Espesor de Disco / Sierra (Kerf) [mm]:
+                            </label>
+                            <input type="number" id="board-kerf" step="0.5" value="5.0" min="0" max="20" class="w-full border border-gray-300 p-2 rounded text-sm font-bold text-orange-800">
+                            <p class="text-[11px] text-gray-500 mt-0.5">Ancho de la huella de corte que consume el disco (ej. 3.2mm - 5.0mm)</p>
+                        </div>
+
+                        <div>
+                            <label for="board-material" class="block text-xs font-semibold text-gray-600 mb-1">
+                                Tipo de Material / Color:
+                            </label>
+                            <select id="board-material" class="w-full border border-gray-300 p-2 rounded text-sm bg-white font-medium">
+                                <option value="Melamina Blanco 18mm">Melamina Blanco 18mm</option>
+                                <option value="Melamina Cedro / Roble 18mm" selected>Melamina Roble / Madera 18mm</option>
+                                <option value="MDF Crudo 15mm">MDF Crudo 15mm</option>
+                                <option value="Triplay / Plywood 18mm">Triplay / Plywood 18mm</option>
+                                <option value="Melamina Antracita / Negro 18mm">Melamina Antracita 18mm</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="board-stock-qty" class="block text-xs font-semibold text-gray-600 mb-1">
+                                Cantidad Disponible en Almacén:
+                            </label>
+                            <input type="number" id="board-stock-qty" value="50" min="1" max="500" class="w-full border border-gray-300 p-2 rounded text-sm font-semibold">
+                            <p class="text-[11px] text-gray-500 mt-0.5">Límite de tableros utilizables.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Board Presets -->
+                <div class="border-t border-gray-200 pt-4 flex items-center justify-between">
+                    <div class="text-xs text-gray-600">
+                        <span class="font-bold mr-2">Tamaños Populares:</span>
+                        <button onclick="setBoardPreset(2440, 1830)" class="px-2.5 py-1 bg-gray-200 hover:bg-gray-300 rounded text-gray-800 mr-1 font-mono">2440 × 1830 mm</button>
+                        <button onclick="setBoardPreset(2750, 1830)" class="px-2.5 py-1 bg-gray-200 hover:bg-gray-300 rounded text-gray-800 mr-1 font-mono">2750 × 1830 mm</button>
+                        <button onclick="setBoardPreset(2440, 1220)" class="px-2.5 py-1 bg-gray-200 hover:bg-gray-300 rounded text-gray-800 font-mono">2440 × 1220 mm</button>
+                    </div>
+                    <button onclick="runOptimization()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded text-xs flex items-center space-x-2">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Guardar y Aplicar</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 3: SOLUCIÓN / VISTA PREVIA DE CORTE ==================== -->
+        <section id="tab-solution" class="tab-content absolute inset-0 hidden flex flex-col bg-slate-900 overflow-hidden">
+            
+            <!-- Top Sub-Bar for Tableros & Metrics EXACTLY MATCHING USER REFERENCE IMAGE -->
+            <div class="bg-[#dcd8ce] border-b-2 border-slate-400 px-3 py-2 flex flex-wrap items-center justify-between gap-2 shadow-sm z-20 text-xs">
+                
+                <!-- Left: Tableros Calculados Pills -->
+                <div class="flex items-center space-x-2 overflow-x-auto py-0.5" id="tableros-pills-container">
+                    <span class="font-bold text-slate-800 mr-1 whitespace-nowrap">Tableros Calculados:</span>
+                    <!-- Dynamic pill buttons like: Tablero 1 (61.0%), Tablero 2 (4.6%) -->
+                    <button class="tablero-pill-active px-3 py-1 rounded text-xs font-bold whitespace-nowrap">
+                        Tablero 1 (61.0%)
+                    </button>
+                    <button class="tablero-pill-inactive px-3 py-1 rounded text-xs font-medium whitespace-nowrap">
+                        Tablero 2 (4.6%)
+                    </button>
+                </div>
+
+                <!-- Right: Metrics Boxes (Aprovechamiento, Merma, Kerf, Zoom) -->
+                <div class="flex items-center space-x-3 ml-auto text-xs select-none">
+                    
+                    <!-- Aprovechamiento Metric Box -->
+                    <div class="flex items-center bg-white border-2 border-blue-600 px-2 py-0.5 rounded font-mono font-bold text-blue-700 shadow-sm">
+                        <span class="text-slate-700 font-sans font-normal mr-1.5 text-[11px]">Aprovechamiento:</span>
+                        <span id="sol-metric-yield" class="text-xs">0.0%</span>
+                    </div>
+
+                    <!-- Merma Metric Box -->
+                    <div class="flex items-center bg-white border-2 border-red-600 px-2 py-0.5 rounded font-mono font-bold text-red-600 shadow-sm">
+                        <span class="text-slate-700 font-sans font-normal mr-1.5 text-[11px]">Merma:</span>
+                        <span id="sol-metric-waste" class="text-xs">0.0%</span>
+                    </div>
+
+                    <!-- Disco Info Box -->
+                    <div class="hidden md:flex items-center bg-slate-100 border border-slate-400 px-2 py-0.5 rounded text-slate-700 font-mono">
+                        <span class="font-sans mr-1 text-[11px]">Disco:</span>
+                        <span id="sol-metric-kerf" class="font-bold">5.0 mm</span>
+                    </div>
+
+                    <!-- Zoom Controls -->
+                    <div class="flex items-center space-x-1 bg-white border border-slate-300 rounded p-0.5">
+                        <button onclick="zoomCanvas(0.85)" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded font-bold" title="Reducir Zoom">-</button>
+                        <span id="zoom-level-text" class="px-1 text-[11px] font-mono text-slate-700 w-12 text-center">100%</span>
+                        <button onclick="zoomCanvas(1.15)" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded font-bold" title="Aumentar Zoom">+</button>
+                        <button onclick="resetZoom()" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded text-[10px] font-semibold" title="Ajustar a Pantalla">Ajustar</button>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Canvas Container Area (Dark Slate with Dot Grid) -->
+            <div id="canvas-viewport" class="flex-1 relative overflow-hidden dark-dot-grid cursor-grab active:cursor-grabbing flex items-center justify-center p-4">
+                
+                <!-- SVG / HTML Render Area inside centered board holder -->
+                <div id="board-canvas-holder" class="relative transition-transform duration-100 ease-out shadow-2xl">
+                    <canvas id="solution-canvas" class="block border border-slate-700 shadow-2xl rounded-sm"></canvas>
+                </div>
+
+                <!-- Hover Details Floating Tooltip -->
+                <div id="piece-tooltip" class="pointer-events-none fixed hidden bg-slate-900/95 text-white text-xs p-2.5 rounded shadow-xl border border-amber-500/50 z-50 backdrop-blur-sm space-y-1">
+                    <div id="tooltip-title" class="font-bold text-amber-400 border-b border-slate-700 pb-1">--</div>
+                    <div id="tooltip-dims" class="font-mono text-slate-200">--</div>
+                    <div id="tooltip-grain" class="text-slate-400 text-[10px]">--</div>
+                    <div id="tooltip-edges" class="text-emerald-400 text-[10px]">--</div>
+                </div>
+
+                <!-- Empty state prompt -->
+                <div id="empty-solution-prompt" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 space-y-3 pointer-events-none hidden">
+                    <i class="fa-solid fa-shapes text-5xl text-slate-600"></i>
+                    <p class="text-base font-semibold">No se ha calculado ninguna optimización aún.</p>
+                    <button onclick="runOptimization()" class="pointer-events-auto bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded font-bold shadow-lg">
+                        Presione "EJECUTAR / OPTIMIZAR"
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Canvas Legend / Status Footer -->
+            <div class="bg-[#12161c] border-t border-slate-800 px-4 py-1.5 flex flex-wrap items-center justify-between text-xs text-slate-400 select-none">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-1.5">
+                        <span class="w-3.5 h-3.5 rounded-sm bg-[#0b1a8f] border border-gray-300 inline-block"></span>
+                        <span class="text-slate-300">Pieza de Corte</span>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <span class="w-3.5 h-3.5 rounded-sm bg-[#1b8a1b] border border-gray-300 inline-block"></span>
+                        <span class="text-slate-300">Retazo Aprovechable</span>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <span class="w-3.5 h-3.5 rounded-sm bg-[#8a8d92] border border-slate-500 inline-block"></span>
+                        <span class="text-slate-400">Merma / Desperdicio</span>
+                    </div>
+                </div>
+                <div class="text-[11px] text-slate-500 flex items-center space-x-3">
+                    <span><i class="fa-solid fa-mouse-pointer mr-1"></i>Arrastre para mover</span>
+                    <span><i class="fa-solid fa-arrows-spin mr-1"></i>Rueda del mouse para zoom</span>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ==================== TAB 4: INFORME / ESTADÍSTICA ==================== -->
+        <section id="tab-report" class="tab-content absolute inset-0 hidden p-6 bg-slate-100 overflow-auto">
+            <div id="printable-area" class="max-w-4xl mx-auto space-y-6">
+                
+                <!-- Report Header -->
+                <div class="bg-white p-6 rounded-lg border border-gray-300 shadow-sm flex items-center justify-between">
+                    <div>
+                        <h1 class="text-xl font-bold text-slate-900 flex items-center space-x-2">
+                            <i class="fa-solid fa-file-contract text-blue-700"></i>
+                            <span>Orden de Corte y Diagrama de Aprovechamiento</span>
+                        </h1>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Software Optiplanning | Fecha: <span id="report-date" class="font-mono">--</span> | Material: <span id="report-material" class="font-bold text-slate-800">--</span>
+                        </p>
+                    </div>
+                    <div class="no-print">
+                        <button onclick="window.print()" class="bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded font-bold text-xs shadow flex items-center space-x-2">
+                            <i class="fa-solid fa-print"></i>
+                            <span>Imprimir Orden de Taller</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPI Summary Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                        <div class="text-xs text-gray-500 font-semibold">Total Tableros</div>
+                        <div id="rep-kpi-boards" class="text-2xl font-bold text-slate-800 mt-1">0</div>
+                        <div class="text-[11px] text-gray-400 mt-0.5" id="rep-kpi-board-dim">2440 × 1830 mm</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg border border-blue-200 shadow-sm">
+                        <div class="text-xs text-blue-600 font-semibold">Aprovechamiento Promedio</div>
+                        <div id="rep-kpi-yield" class="text-2xl font-bold text-blue-700 mt-1">0%</div>
+                        <div class="text-[11px] text-blue-500 mt-0.5">Área útil total</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg border border-red-200 shadow-sm">
+                        <div class="text-xs text-red-600 font-semibold">Merma Total</div>
+                        <div id="rep-kpi-waste" class="text-2xl font-bold text-red-600 mt-1">0%</div>
+                        <div class="text-[11px] text-red-500 mt-0.5">Aserrín y recortes no reusables</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg border border-emerald-200 shadow-sm">
+                        <div class="text-xs text-emerald-600 font-semibold">Piezas Colocadas</div>
+                        <div id="rep-kpi-placed" class="text-2xl font-bold text-emerald-700 mt-1">0 / 0</div>
+                        <div class="text-[11px] text-emerald-600 mt-0.5">100% Ubicadas</div>
+                    </div>
+                </div>
+
+                <!-- Detailed Breakdown per Board -->
+                <div class="bg-white rounded-lg border border-gray-300 shadow-sm overflow-hidden">
+                    <div class="bg-slate-800 text-white px-4 py-2.5 font-bold text-xs flex justify-between items-center">
+                        <span>DESGLOSE POR TABLERO CALCULADO</span>
+                        <span class="text-slate-400 font-normal">Formato Guillotina 2D</span>
+                    </div>
+                    <div class="divide-y divide-gray-200 text-xs" id="report-boards-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Unplaced / Remaining Pieces Alert (if any) -->
+                <div id="report-unplaced-box" class="hidden bg-red-50 border-l-4 border-red-600 p-4 rounded-r-lg shadow-sm">
+                    <h3 class="font-bold text-red-800 text-xs flex items-center space-x-1.5">
+                        <i class="fa-solid fa-triangle-exclamation text-red-600"></i>
+                        <span>Piezas No Colocadas (Falta de Stock o Dimensiones Mayores al Tablero)</span>
+                    </h3>
+                    <div id="report-unplaced-list" class="mt-2 text-xs text-red-700 font-mono space-y-1">
+                        <!-- Listed here -->
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- About Modal Dialog -->
+    <div id="about-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden backdrop-blur-xs">
+        <div class="bg-white rounded-lg border border-gray-400 shadow-2xl max-w-md w-full overflow-hidden">
+            <div class="bg-winblue text-white px-4 py-2 font-bold text-xs flex items-center justify-between">
+                <span>Acerca de Optiplanning</span>
+                <button onclick="closeAboutModal()" class="hover:bg-blue-800 px-2 rounded">✕</button>
+            </div>
+            <div class="p-5 text-xs text-gray-700 space-y-3">
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-shapes text-3xl text-amber-500"></i>
+                    <div>
+                        <h3 class="font-bold text-sm text-gray-900">Optiplanning Web Replica v4.2</h3>
+                        <p class="text-gray-500">Optimizador de corte industrial para carpintería</p>
+                    </div>
+                </div>
+                <hr border-gray-200>
+                <p>
+                    Optiplanning es un software interactivo de optimización de corte guillotina 2D para tableros de melamina, madera, MDF y triplay.
+                </p>
+                <ul class="list-disc list-inside space-y-1 text-gray-600 bg-gray-50 p-2.5 rounded border border-gray-200">
+                    <li>Algoritmo Heurístico de Corte Guillotina 2D.</li>
+                    <li>Soporte de Veta / Sentido de Fibra (0, 1, 2).</li>
+                    <li>Cálculo exacto de kerf de sierra y refilo exterior.</li>
+                    <li>Identificación gráfica de Retazos Reutilizables.</li>
+                </ul>
+                <div class="pt-2 flex justify-end">
+                    <button onclick="closeAboutModal()" class="win-button px-4 py-1.5 rounded font-bold text-gray-800">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast-msg" class="fixed bottom-4 right-4 bg-slate-900 text-white px-4 py-2.5 rounded-lg shadow-xl text-xs font-semibold flex items-center space-x-2 border border-slate-700 transition-opacity duration-300 opacity-0 pointer-events-none z-50">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+        <span id="toast-text">Notificación</span>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           STATE & DATA STRUCTURES
+           ========================================================================== */
+        
+        let boardSettings = {
+            length: 2440,
+            width: 1830,
+            trim: 10,
+            kerf: 5.0,
+            material: 'Melamina Roble / Madera 18mm',
+            stockQty: 50
+        };
+
+        // Standard Default Data matching wardrobe (Ropero) sample from user reference
+        let cutPieces = [
+            { id: 1, qty: 3, length: 2000, width: 454, grain: 1, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Lateral Ropero', desc2: 'Cuerpo' },
+            { id: 2, qty: 2, length: 1500, width: 450, grain: 1, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Techo/Base Ropero', desc2: 'Cuerpo' },
+            { id: 3, qty: 4, length: 730, width: 450, grain: 1, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Estante Móvil', desc2: 'Interior' },
+            { id: 4, qty: 2, length: 1980, width: 380, grain: 1, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Puerta Principal', desc2: 'Frente' },
+            { id: 5, qty: 4, length: 450, width: 180, grain: 0, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Lateral Cajón', desc2: 'Cajonería' }
+        ];
+
+        let optimizationResult = {
+            boards: [],       // Array of calculated boards
+            unplaced: [],     // Pieces that couldn't fit
+            totalPieces: 0,
+            placedPieces: 0
+        };
+
+        let activeBoardIndex = 0;
+        let zoomScale = 1.0;
+        let panOffset = { x: 0, y: 0 };
+        let isDraggingCanvas = false;
+        let dragStart = { x: 0, y: 0 };
+
+        /* ==========================================================================
+           INITIALIZATION & EVENT LISTENERS
+           ========================================================================== */
+
+        window.onload = function () {
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            renderPiecesTable();
+            setupCanvasPanZoom();
+
+            // Run initial optimization
+            runOptimization();
+
+            // Handle window resizing
+            window.addEventListener('resize', () => {
+                if (optimizationResult.boards.length > 0) {
+                    renderSolutionCanvas();
+                }
+            });
+        };
+
+        function updateClock() {
+            const now = new Date();
+            const el = document.getElementById('clock-display');
+            if (el) {
+                el.innerText = now.toLocaleTimeString();
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast-msg');
+            const icon = document.getElementById('toast-icon');
+            const text = document.getElementById('toast-text');
+
+            text.innerText = message;
+            if (type === 'success') {
+                icon.className = 'fa-solid fa-circle-check text-emerald-400 text-base';
+            } else if (type === 'error') {
+                icon.className = 'fa-solid fa-circle-xmark text-red-400 text-base';
+            } else {
+                icon.className = 'fa-solid fa-circle-info text-blue-400 text-base';
+            }
+
+            toast.classList.remove('opacity-0');
+            toast.classList.add('opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0');
+            }, 3000);
+        }
+
+        /* ==========================================================================
+           TAB NAVIGATION
+           ========================================================================== */
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn bg-gray-200 border-t border-x border-gray-400 px-4 py-1.5 font-medium text-gray-600 rounded-t hover:bg-gray-100 flex items-center space-x-1.5';
+            });
+
+            const activeBtn = document.getElementById('nav-' + tabId);
+            if (activeBtn) {
+                activeBtn.className = 'tab-btn bg-white border-t-2 border-x border-gray-400 border-t-blue-700 px-4 py-1.5 font-bold text-gray-800 rounded-t flex items-center space-x-1.5';
+            }
+
+            if (tabId === 'tab-solution') {
+                setTimeout(() => {
+                    renderSolutionCanvas();
+                }, 50);
+            } else if (tabId === 'tab-report') {
+                renderReport();
+            }
+        }
+
+        /* ==========================================================================
+           INTERACTIVE SPREADSHEET TABLE (INSERIR / MODIFICAR)
+           ========================================================================== */
+
+        // Enter avanza al siguiente campo editable dentro de la tabla.
+        // En cantos: D = DELGADO, G = GRUESO, y '-' conserva sin canto.
+        function normalizeEdgeValue(value) {
+            const v = String(value ?? '').trim().toUpperCase();
+            if (v === 'D' || v === 'DE' || v === 'DELGADO') return 'DELGADO';
+            if (v === 'G' || v === 'GR' || v === 'GRUESO') return 'GRUESO';
+            if (v === '') return '-';
+            return v;
+        }
+
+        function handleEdgeKey(event, index, field, input) {
+            const key = event.key.toUpperCase();
+            if (key === 'D') {
+                event.preventDefault();
+                input.value = 'DELGADO';
+                updatePieceField(index, field, 'DELGADO');
+                moveToNextCell(input);
+                return;
+            }
+            if (key === 'G') {
+                event.preventDefault();
+                input.value = 'GRUESO';
+                updatePieceField(index, field, 'GRUESO');
+                moveToNextCell(input);
+                return;
+            }
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                input.value = normalizeEdgeValue(input.value);
+                updatePieceField(index, field, input.value);
+                moveToNextCell(input);
+            }
+        }
+
+        function moveToNextCell(current) {
+            const fields = Array.from(document.querySelectorAll('#pieces-table input, #pieces-table select, #pieces-table button'))
+                .filter(el => !el.disabled && el.offsetParent !== null);
+            const idx = fields.indexOf(current);
+            if (idx >= 0 && idx < fields.length - 1) {
+                fields[idx + 1].focus();
+                if (fields[idx + 1].select) fields[idx + 1].select();
+            }
+        }
+
+        function handleTableEnter(event) {
+            if (event.key !== 'Enter') return;
+            const el = event.target;
+            if (!el.matches('#pieces-table input, #pieces-table select')) return;
+            event.preventDefault();
+            if (el.tagName === 'INPUT' && el.type === 'text') {
+                el.value = normalizeEdgeValue(el.value);
+            }
+            moveToNextCell(el);
+        }
+
+        document.addEventListener('keydown', handleTableEnter);
+
+        function renderPiecesTable() {
+            const tbody = document.getElementById('pieces-table-body');
+            tbody.innerHTML = '';
+
+            let totalQty = 0;
+
+            cutPieces.forEach((item, index) => {
+                totalQty += Number(item.qty || 0);
+                const tr = document.createElement('tr');
+                tr.className = index % 2 === 0 ? 'bg-white hover:bg-blue-50/50' : 'bg-slate-50/70 hover:bg-blue-50/50';
+
+                tr.innerHTML = `
+                    <td class="p-1.5 border-r border-gray-200 text-center font-bold text-gray-400">${index + 1}</td>
+                    <td class="p-1 border-r border-gray-200 text-center">
+                        <input type="number" min="1" max="999" value="${item.qty}" onchange="updatePieceField(${index}, 'qty', this.value)" class="w-full text-center border-0 bg-transparent focus:bg-amber-50 focus:ring-1 focus:ring-amber-500 font-bold text-blue-900">
+                    </td>
+                    <td class="p-1 border-r border-gray-200 text-center">
+                        <input type="number" min="1" max="10000" value="${item.length}" onchange="updatePieceField(${index}, 'length', this.value)" class="w-full text-center border-0 bg-transparent focus:bg-amber-50 focus:ring-1 focus:ring-amber-500 font-bold text-slate-800">
+                    </td>
+                    <td class="p-1 border-r border-gray-200 text-center">
+                        <input type="number" min="1" max="10000" value="${item.width}" onchange="updatePieceField(${index}, 'width', this.value)" class="w-full text-center border-0 bg-transparent focus:bg-amber-50 focus:ring-1 focus:ring-amber-500 font-bold text-slate-800">
+                    </td>
+                    <td class="p-1 border-r border-gray-200 text-center">
+                        <select onchange="updatePieceField(${index}, 'grain', this.value)" class="w-full border-0 bg-transparent focus:bg-amber-50 font-semibold text-xs text-center text-amber-900">
+                            <option value="0" ${item.grain == 0 ? 'selected' : ''}>0 - Sin Veta</option>
+                            <option value="1" ${item.grain == 1 ? 'selected' : ''}>1 - Largura (X)</option>
+                            <option value="2" ${item.grain == 2 ? 'selected' : ''}>2 - Anchura (Y)</option>
+                        </select>
+                    </td>
+                    <td class="p-1 border-r border-gray-200 text-center">
+                        <input type="text" value="${item.edgeTop}" onkeydown="handleEdgeKey(event, ${index}, 'edgeTop', this)" onchange="updatePieceField(${index}, 'edgeTop', normalizeEdgeValue(this.value))" class="w-full text-center border-0 bg-transparent uppercase font-mono">
+                    </td>
+                    <td class="p-1 border-r border-gray-200 text-center">
+                        <input type="text" value="${item.edgeBot}" onkeydown="handleEdgeKey(event, ${index}, 'edgeBot', this)" onchange="updatePieceField(${index}, 'edgeBot', normalizeEdgeValue(this.value))" class="w-full text-center border-0 bg-transparent uppercase font-mono">
+                    </td>
+                    <td class="p-1 border-r border-gray-200 text-center">
+                        <input type="text" value="${item.edgeLeft}" onkeydown="handleEdgeKey(event, ${index}, 'edgeLeft', this)" onchange="updatePieceField(${index}, 'edgeLeft', normalizeEdgeValue(this.value))" class="w-full text-center border-0 bg-transparent uppercase font-mono">
+                    </td>
+                    <td class="p-1 border-r border-gray-200 text-center">
+                        <input type="text" value="${item.edgeRight}" onkeydown="handleEdgeKey(event, ${index}, 'edgeRight', this)" onchange="updatePieceField(${index}, 'edgeRight', normalizeEdgeValue(this.value))" class="w-full text-center border-0 bg-transparent uppercase font-mono">
+                    </td>
+                    <td class="p-1 border-r border-gray-200">
+                        <input type="text" value="${item.desc1}" onchange="updatePieceField(${index}, 'desc1', this.value)" class="w-full border-0 bg-transparent focus:bg-amber-50 font-medium text-slate-800">
+                    </td>
+                    <td class="p-1 border-r border-gray-200">
+                        <input type="text" value="${item.desc2}" onchange="updatePieceField(${index}, 'desc2', this.value)" class="w-full border-0 bg-transparent focus:bg-amber-50 text-gray-600">
+                    </td>
+                    <td class="p-1 text-center">
+                        <button onclick="deletePieceRow(${index})" class="text-red-500 hover:text-red-700 p-1" title="Eliminar fila">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('summary-total-pieces').innerText = totalQty;
+        }
+
+        function updatePieceField(index, field, value) {
+            if (field === 'edgeTop' || field === 'edgeBot' || field === 'edgeLeft' || field === 'edgeRight') value = normalizeEdgeValue(value);
+            if (field === 'qty' || field === 'length' || field === 'width' || field === 'grain') {
+                cutPieces[index][field] = Number(value);
+            } else {
+                cutPieces[index][field] = value;
+            }
+            document.getElementById('summary-total-pieces').innerText = cutPieces.reduce((acc, p) => acc + (p.qty || 0), 0);
+        }
+
+        function addNewRow() {
+            cutPieces.push({
+                id: cutPieces.length + 1,
+                qty: 1,
+                length: 600,
+                width: 400,
+                grain: 0,
+                edgeTop: '-',
+                edgeBot: '-',
+                edgeLeft: '-',
+                edgeRight: '-',
+                desc1: 'Nueva Pieza',
+                desc2: 'Módulo'
+            });
+            renderPiecesTable();
+            showToast('Nueva fila añadida', 'info');
+        }
+
+        function deletePieceRow(index) {
+            if (cutPieces.length <= 1) {
+                showToast('Debe haber al menos una fila en la lista', 'error');
+                return;
+            }
+            cutPieces.splice(index, 1);
+            renderPiecesTable();
+        }
+
+        function deleteSelectedRow() {
+            if (cutPieces.length > 0) {
+                cutPieces.pop();
+                renderPiecesTable();
+            }
+        }
+
+        function clearAllRows() {
+            cutPieces = [{
+                id: 1,
+                qty: 1,
+                length: 1000,
+                width: 500,
+                grain: 0,
+                edgeTop: '-',
+                edgeBot: '-',
+                edgeLeft: '-',
+                edgeRight: '-',
+                desc1: 'Pieza Base',
+                desc2: '-'
+            }];
+            renderPiecesTable();
+            showToast('Lista reiniciada', 'info');
+        }
+
+        function presetSampleData(type) {
+            if (type === 'wardrobe') {
+                cutPieces = [
+                    { id: 1, qty: 3, length: 2000, width: 454, grain: 1, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Lateral Ropero', desc2: 'Estructura' },
+                    { id: 2, qty: 2, length: 1500, width: 450, grain: 1, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Techo/Base Ropero', desc2: 'Estructura' },
+                    { id: 3, qty: 4, length: 730, width: 450, grain: 1, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Estante Móvil', desc2: 'Interior' },
+                    { id: 4, qty: 2, length: 1980, width: 380, grain: 1, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Puerta Ropero', desc2: 'Frente' },
+                    { id: 5, qty: 4, length: 450, width: 180, grain: 0, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Lateral Cajón', desc2: 'Cajonería' }
+                ];
+                showToast('Ejemplo Ropero cargado');
+            } else if (type === 'kitchen') {
+                cutPieces = [
+                    { id: 1, qty: 4, length: 720, width: 560, grain: 1, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Lateral Módulo Bajo', desc2: 'Cocina' },
+                    { id: 2, qty: 2, length: 1200, width: 560, grain: 1, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Piso Módulo Bajo', desc2: 'Cocina' },
+                    { id: 3, qty: 4, length: 1168, width: 100, grain: 1, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Amarre Superior', desc2: 'Cocina' },
+                    { id: 4, qty: 3, length: 715, width: 395, grain: 1, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Puerta Cocina', desc2: 'Frente' },
+                    { id: 5, qty: 2, length: 1168, width: 500, grain: 0, edgeTop: '-', edgeBot: '-', edgeLeft: '-', edgeRight: '-', desc1: 'Estante Cocina', desc2: 'Interior' }
+                ];
+                showToast('Ejemplo Cocina cargado');
+            }
+            renderPiecesTable();
+            runOptimization();
+        }
+
+        /* ==========================================================================
+           BOARD SETTINGS HANDLERS
+           ========================================================================== */
+
+        function updateKerfFromQuick(val) {
+            const num = parseFloat(val) || 0;
+            boardSettings.kerf = num;
+            document.getElementById('board-kerf').value = num;
+            document.getElementById('sol-metric-kerf').innerText = num.toFixed(1) + ' mm';
+        }
+
+        function setBoardPreset(l, w) {
+            document.getElementById('board-length').value = l;
+            document.getElementById('board-width').value = w;
+            showToast(`Tablero establecido a ${l} × ${w} mm`);
+        }
+
+        function readBoardSettings() {
+            boardSettings.length = parseFloat(document.getElementById('board-length').value) || 2440;
+            boardSettings.width = parseFloat(document.getElementById('board-width').value) || 1830;
+            boardSettings.trim = parseFloat(document.getElementById('board-trim').value) || 10;
+            boardSettings.kerf = parseFloat(document.getElementById('board-kerf').value) || 5.0;
+            boardSettings.material = document.getElementById('board-material').value;
+            boardSettings.stockQty = parseInt(document.getElementById('board-stock-qty').value) || 50;
+
+            document.getElementById('tb-kerf-quick').value = boardSettings.kerf;
+            document.getElementById('sol-metric-kerf').innerText = boardSettings.kerf.toFixed(1) + ' mm';
+        }
+
+        /* ==========================================================================
+           GUILLOTINE 2D PACKING OPTIMIZATION ENGINE
+           ========================================================================== */
+
+        function runOptimization() {
+            readBoardSettings();
+
+            // Expand quantities into individual pieces.
+            let items = [];
+            let uid = 1;
+            cutPieces.forEach(p => {
+                const qty = Math.max(0, parseInt(p.qty) || 0);
+                for (let i = 0; i < qty; i++) {
+                    items.push({
+                        uid: uid++,
+                        desc1: p.desc1 || ('Pieza ' + uid), desc2: p.desc2 || '',
+                        length: Math.max(1, parseFloat(p.length) || 100),
+                        width: Math.max(1, parseFloat(p.width) || 100),
+                        grain: parseInt(p.grain) || 0,
+                        edgeTop:p.edgeTop, edgeBot:p.edgeBot, edgeLeft:p.edgeLeft, edgeRight:p.edgeRight
+                    });
+                }
+            });
+
+            const L = boardSettings.length - 2 * boardSettings.trim;
+            const W = boardSettings.width - 2 * boardSettings.trim;
+            const kerf = Math.max(0, boardSettings.kerf);
+            const stockQty = Math.max(1, boardSettings.stockQty);
+
+            // A real optimizer needs to try more than one ordering. We run several
+            // deterministic heuristics and keep the solution with the fewest boards,
+            // then the highest yield, then the smallest unusable waste.
+            const strategies = [
+                {name:'Área', score:(p)=>p.length*p.width},
+                {name:'Largo', score:(p)=>Math.max(p.length,p.width)*1000000 + p.length*p.width},
+                {name:'Ancho', score:(p)=>Math.min(p.length,p.width)*1000000 + p.length*p.width},
+                {name:'Perímetro', score:(p)=>(p.length+p.width)*1000000 + p.length*p.width},
+                {name:'Área + largo', score:(p)=>p.length*p.width*100 + Math.max(p.length,p.width)}
+            ];
+
+            function orientations(item) {
+                if (item.grain === 1) return [{w:item.length,h:item.width,isRotated:false}];
+                if (item.grain === 2) return [{w:item.width,h:item.length,isRotated:true}];
+                const a=[{w:item.length,h:item.width,isRotated:false}];
+                if (item.length !== item.width) a.push({w:item.width,h:item.length,isRotated:true});
+                return a;
+            }
+
+            function pack(order) {
+                let remaining = order.slice();
+                const boards=[];
+                let boardNum=1;
+
+                while (remaining.length && boardNum<=stockQty) {
+                    let board={boardNum,pieces:[],retazos:[],usedArea:0,freeArea:0,yieldPercent:0,wastePercent:0,cuts:0};
+                    let free=[{x:boardSettings.trim,y:boardSettings.trim,w:L,h:W}];
+                    let next=[];
+
+                    for (const item of remaining) {
+                        let best=null;
+                        for(let ri=0;ri<free.length;ri++) {
+                            const r=free[ri];
+                            for(const o of orientations(item)) {
+                                if(o.w <= r.w+1e-9 && o.h <= r.h+1e-9) {
+                                    const leftoverArea=r.w*r.h-o.w*o.h;
+                                    const short=Math.min(r.w-o.w,r.h-o.h);
+                                    const long=Math.max(r.w-o.w,r.h-o.h);
+                                    // Prefer tight fits; then lower fragmentation.
+                                    const fit=short*1000000 + long*1000 + leftoverArea;
+                                    if(!best || fit<best.fit) best={ri,o,fit};
+                                }
+                            }
+                        }
+                        if(!best){ next.push(item); continue; }
+
+                        const r=free[best.ri], o=best.o;
+                        board.pieces.push({x:r.x,y:r.y,w:o.w,h:o.h,desc1:item.desc1,desc2:item.desc2,grain:item.grain,isRotated:o.isRotated,edgeTop:item.edgeTop,edgeBot:item.edgeBot,edgeLeft:item.edgeLeft,edgeRight:item.edgeRight,uid:item.uid});
+                        board.usedArea += o.w*o.h;
+                        free.splice(best.ri,1);
+
+                        // Two guillotine splits. Try both split directions and retain
+                        // the one that leaves the larger largest usable rectangle.
+                        const rw=r.w-o.w-kerf, rh=r.h-o.h-kerf;
+                        const candidates=[];
+                        if(rw>0) candidates.push([{x:r.x+o.w+kerf,y:r.y,w:rw,h:r.h},{x:r.x,y:r.y+o.h+kerf,w:o.w,h:rh}]);
+                        if(rh>0) candidates.push([{x:r.x,y:r.y+o.h+kerf,w:r.w,h:rh},{x:r.x+o.w+kerf,y:r.y,w:rw,h:o.h}]);
+                        if(candidates.length){
+                            candidates.sort((a,b)=>{
+                                const score=g=>Math.max(...g.map(q=>q.w*q.h),0)-g.reduce((z,q)=>z+((q.w<150||q.h<150)?q.w*q.h:0),0);
+                                return score(b)-score(a);
+                            });
+                            free.push(...candidates[0].filter(q=>q.w>0&&q.h>0));
+                        }
+                    }
+
+                    // Merge contained free rectangles to reduce fragmentation.
+                    free=free.filter((r,i,a)=>r.w>=0.1&&r.h>=0.1 && !a.some((q,j)=>j!==i&&q.x<=r.x+0.1&&q.y<=r.y+0.1&&q.x+q.w>=r.x+r.w-0.1&&q.y+q.h>=r.y+r.h-0.1));
+                    board.retazos=free.filter(r=>r.w>=150&&r.h>=150);
+                    board.freeArea=free.reduce((a,r)=>a+r.w*r.h,0);
+                    const gross=boardSettings.length*boardSettings.width;
+                    board.yieldPercent=board.usedArea/gross*100;
+                    board.wastePercent=100-board.yieldPercent;
+                    board.cuts=Math.max(0,board.pieces.length*2+board.retazos.length);
+                    boards.push(board);
+                    remaining=next;
+                    if(!board.pieces.length) break;
+                    boardNum++;
+                }
+                return {boards,unplaced:remaining};
+            }
+
+            let bestResult=null;
+            for(const strategy of strategies){
+                const order=items.slice().sort((a,b)=>strategy.score(b)-strategy.score(a));
+                const result=pack(order);
+                const placed=items.length-result.unplaced.length;
+                const boardsUsed=result.boards.length;
+                const yieldTotal=items.length?result.boards.reduce((a,b)=>a+b.usedArea,0):0;
+                const remArea=result.boards.reduce((a,b)=>a+b.retazos.reduce((x,r)=>x+r.w*r.h,0),0);
+                const key=[result.unplaced.length,boardsUsed,-yieldTotal,remArea];
+                if(!bestResult || key.some((v,i)=>v!==bestResult.key[i] && v<bestResult.key[i])) bestResult={...result,key,strategy:strategy.name};
+            }
+
+            // Local improvement: retry with pieces ordered by the best solution's
+            // board placement sizes, often recovering a better fit on the last board.
+            if(bestResult){
+                const base=items.slice().sort((a,b)=> (b.length*b.width)-(a.length*a.width));
+                const retry=pack(base.reverse());
+                const currentPlaced=items.length-bestResult.unplaced.length;
+                const retryPlaced=items.length-retry.unplaced.length;
+                const currentArea=bestResult.boards.reduce((a,b)=>a+b.usedArea,0);
+                const retryArea=retry.boards.reduce((a,b)=>a+b.usedArea,0);
+                if(retryPlaced>currentPlaced || (retryPlaced===currentPlaced && retryArea>currentArea)) bestResult={...retry,key:[retry.unplaced.length,retry.boards.length,-retryArea,0],strategy:'Mejora local'};
+            }
+
+            optimizationResult={
+                boards:bestResult?bestResult.boards:[],
+                unplaced:bestResult?bestResult.unplaced:items,
+                totalPieces:items.length,
+                placedPieces:bestResult?items.length-bestResult.unplaced.length:0,
+                strategy:bestResult?bestResult.strategy:'-'
+            };
+            activeBoardIndex=0;
+            updateSubBarTabs();
+
+            // Refresh existing metrics/rendering used by the original interface.
+            if(typeof renderSolutionCanvas==='function') renderSolutionCanvas();
+            if(typeof renderSolutionMetrics==='function') renderSolutionMetrics();
+            if(typeof renderReport==='function') renderReport();
+        }
+
+        function updateSubBarTabs() {
+            const container = document.getElementById('tableros-pills-container');
+            container.innerHTML = '<span class="font-bold text-slate-800 mr-1 whitespace-nowrap">Tableros Calculados:</span>';
+
+            if (optimizationResult.boards.length === 0) {
+                document.getElementById('sol-metric-yield').innerText = '0.0%';
+                document.getElementById('sol-metric-waste').innerText = '0.0%';
+                return;
+            }
+
+            optimizationResult.boards.forEach((board, index) => {
+                const btn = document.createElement('button');
+                const yieldVal = board.yieldPercent.toFixed(1);
+
+                if (index === activeBoardIndex) {
+                    btn.className = 'tablero-pill-active px-3 py-1 rounded text-xs font-bold whitespace-nowrap transition-all';
+                } else {
+                    btn.className = 'tablero-pill-inactive px-3 py-1 rounded text-xs font-medium whitespace-nowrap transition-all';
+                }
+
+                btn.innerText = `Tablero ${board.boardNum} (${yieldVal}%)`;
+                btn.onclick = () => {
+                    activeBoardIndex = index;
+                    updateSubBarTabs();
+                    renderSolutionCanvas();
+                };
+                container.appendChild(btn);
+            });
+
+            const activeBoard = optimizationResult.boards[activeBoardIndex];
+            if (activeBoard) {
+                document.getElementById('sol-metric-yield').innerText = activeBoard.yieldPercent.toFixed(1) + '%';
+                document.getElementById('sol-metric-waste').innerText = activeBoard.wastePercent.toFixed(1) + '%';
+            }
+        }
+
+        function renderSolutionCanvas() {
+            const viewport = document.getElementById('canvas-viewport');
+            const canvas = document.getElementById('solution-canvas');
+            const emptyPrompt = document.getElementById('empty-solution-prompt');
+
+            if (!optimizationResult.boards || optimizationResult.boards.length === 0) {
+                emptyPrompt.classList.remove('hidden');
+                canvas.style.display = 'none';
+                return;
+            } else {
+                emptyPrompt.classList.add('hidden');
+                canvas.style.display = 'block';
+            }
+
+            const activeBoard = optimizationResult.boards[activeBoardIndex];
+            const ctx = canvas.getContext('2d');
+
+            // Viewport dimensions
+            const vpWidth = viewport.clientWidth || 800;
+            const vpHeight = viewport.clientHeight || 600;
+
+            // Compute scaling factor to fit board into viewport with padding
+            const padding = 60;
+            const scaleX = (vpWidth - padding) / boardSettings.length;
+            const scaleY = (vpHeight - padding) / boardSettings.width;
+            const baseScale = Math.min(scaleX, scaleY) * zoomScale;
+
+            const canvasW = boardSettings.length * baseScale;
+            const canvasH = boardSettings.width * baseScale;
+
+            canvas.width = canvasW;
+            canvas.height = canvasH;
+
+            // Apply Pan Translation
+            const holder = document.getElementById('board-canvas-holder');
+            holder.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
+
+            // Clear Canvas Background (Board perimeter margin / waste area)
+            // Sobrantes: gris con puntitos / rayado (como el sistema original)
+            const hp = document.createElement('canvas'); hp.width = 8; hp.height = 8;
+            const hc = hp.getContext('2d');
+            hc.fillStyle = '#8a8d92'; hc.fillRect(0, 0, 8, 8);
+            hc.strokeStyle = '#2b2d31'; hc.lineWidth = 1.6;
+            hc.beginPath(); hc.moveTo(-2, 10); hc.lineTo(10, -2); hc.moveTo(-2, 2); hc.lineTo(2, -2); hc.moveTo(6, 10); hc.lineTo(10, 6); hc.stroke();
+            hc.fillStyle = '#d0d2d6'; hc.fillRect(1, 1, 1, 1); hc.fillRect(5, 5, 1, 1);
+            ctx.fillStyle = ctx.createPattern(hp, 'repeat');
+            ctx.fillRect(0, 0, canvasW, canvasH);
+
+            // Draw Board Perimeter Rim
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(0, 0, canvasW, canvasH);
+
+            // Draw Trim Area (Refilo)
+            const trimPx = boardSettings.trim * baseScale;
+            if (trimPx > 0) {
+                ctx.strokeStyle = '#d1d5db';
+                ctx.setLineDash([4, 3]);
+                ctx.lineWidth = 1;
+                ctx.strokeRect(trimPx, trimPx, canvasW - (2 * trimPx), canvasH - (2 * trimPx));
+                ctx.setLineDash([]);
+            }
+
+            // 1. RENDER RETAZOS (DARK FOREST GREEN WITH MINT GREEN TEXT)
+            // EXACT MATCH TO REFERENCE IMAGE: #133e2c fill, #10b981 border, #86efac text
+            activeBoard.retazos.forEach(r => {
+                const rx = r.x * baseScale;
+                const ry = r.y * baseScale;
+                const rw = r.w * baseScale;
+                const rh = r.h * baseScale;
+
+                ctx.fillStyle = '#1b8a1b';
+                ctx.fillRect(rx, ry, rw, rh);
+
+                ctx.strokeStyle = '#e5e7eb';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(rx, ry, rw, rh);
+
+                // Draw Text inside Retazo (Top-left aligned)
+                if (rw > 30 && rh > 20) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold ' + Math.max(10, Math.min(12, rw / 10)) + 'px Segoe UI, sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+
+                    const text = `Retazo: ${Math.round(r.w)}×${Math.round(r.h)}`;
+                    ctx.fillText(text, rx + 6, ry + 6);
+                }
+            });
+
+            // 2. RENDER CUT PIECES (RICH TERRACOTTA ORANGE WITH BOLD WHITE TEXT)
+            // EXACT MATCH TO REFERENCE IMAGE: #bd5c18 fill, #f97316 border
+            activeBoard.pieces.forEach(p => {
+                const px = p.x * baseScale;
+                const py = p.y * baseScale;
+                const pw = p.w * baseScale;
+                const ph = p.h * baseScale;
+
+                // Terracotta Orange Fill
+                ctx.fillStyle = '#0b1a8f';
+                ctx.fillRect(px, py, pw, ph);
+
+                // Fine Orange Border
+                ctx.strokeStyle = '#e5e7eb';
+                ctx.lineWidth = 1.2;
+                ctx.strokeRect(px, py, pw, ph);
+
+                // Draw horizontal subtle dashed line through middle (as in reference image!)
+                if (false) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#f9731630';
+                    ctx.setLineDash([3, 3]);
+                    ctx.moveTo(px, py + ph / 2);
+                    ctx.lineTo(px + pw, py + ph / 2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // Render Piece Labels Top-Left Aligned
+                if (pw > 25 && ph > 20) {
+                    ctx.save();
+                    // Clip text inside piece rectangle
+                    ctx.beginPath();
+                    ctx.rect(px + 4, py + 4, pw - 8, ph - 8);
+                    ctx.clip();
+
+                    // Line 1: Description in BOLD WHITE text
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold ' + Math.max(11, Math.min(13, pw / 12)) + 'px Segoe UI, sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(p.desc1, px + 6, py + 6);
+
+                    // Line 2: Dimension text in light orange/white
+                    ctx.fillStyle = '#dbe4ff';
+                    ctx.font = 'normal ' + Math.max(10, Math.min(11, pw / 14)) + 'px monospace';
+                    ctx.fillText(`${Math.round(p.w)}×${Math.round(p.h)} mm`, px + 6, py + 22);
+
+                    ctx.restore();
+                }
+            });
+
+            // Setup Tooltip Mouse Hover Handlers
+            setupCanvasHoverTooltip(canvas, activeBoard, baseScale);
+        }
+
+        /* ==========================================================================
+           CANVAS HOVER TOOLTIP & PAN / ZOOM
+           ========================================================================== */
+
+        function setupCanvasHoverTooltip(canvas, board, scale) {
+            const tooltip = document.getElementById('piece-tooltip');
+
+            canvas.onmousemove = function (e) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left) / scale;
+                const mouseY = (e.clientY - rect.top) / scale;
+
+                let hovered = board.pieces.find(p =>
+                    mouseX >= p.x && mouseX <= (p.x + p.w) &&
+                    mouseY >= p.y && mouseY <= (p.y + p.h)
+                );
+
+                if (hovered) {
+                    document.getElementById('tooltip-title').innerText = hovered.desc1 + (hovered.desc2 ? ` (${hovered.desc2})` : '');
+                    document.getElementById('tooltip-dims').innerText = `Dimensiones: ${Math.round(hovered.w)} × ${Math.round(hovered.h)} mm`;
+                    document.getElementById('tooltip-grain').innerText = `Orientación: ${hovered.isRotated ? 'Rotado 90°' : 'Normal (0°)'}`;
+                    document.getElementById('tooltip-edges').innerText = `Cantos: Sup[${hovered.edgeTop}] Inf[${hovered.edgeBot}] Izq[${hovered.edgeLeft}] Der[${hovered.edgeRight}]`;
+
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY + 15) + 'px';
+                    tooltip.classList.remove('hidden');
+                } else {
+                    tooltip.classList.add('hidden');
+                }
+            };
+
+            canvas.onmouseleave = function () {
+                tooltip.classList.add('hidden');
+            };
+        }
+
+        function setupCanvasPanZoom() {
+            const viewport = document.getElementById('canvas-viewport');
+
+            viewport.onmousedown = function (e) {
+                if (e.target.id === 'solution-canvas' || e.target.id === 'canvas-viewport' || e.target.id === 'board-canvas-holder') {
+                    isDraggingCanvas = true;
+                    dragStart = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
+                }
+            };
+
+            window.onmousemove = function (e) {
+                if (isDraggingCanvas) {
+                    panOffset.x = e.clientX - dragStart.x;
+                    panOffset.y = e.clientY - dragStart.y;
+                    const holder = document.getElementById('board-canvas-holder');
+                    if (holder) {
+                        holder.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px)`;
+                    }
+                }
+            };
+
+            window.onmouseup = function () {
+                isDraggingCanvas = false;
+            };
+
+            viewport.onwheel = function (e) {
+                e.preventDefault();
+                if (e.deltaY < 0) {
+                    zoomCanvas(1.1);
+                } else {
+                    zoomCanvas(0.9);
+                }
+            };
+        }
+
+        function zoomCanvas(factor) {
+            zoomScale = Math.max(0.4, Math.min(3.0, zoomScale * factor));
+            document.getElementById('zoom-level-text').innerText = Math.round(zoomScale * 100) + '%';
+            renderSolutionCanvas();
+        }
+
+        function resetZoom() {
+            zoomScale = 1.0;
+            panOffset = { x: 0, y: 0 };
+            document.getElementById('zoom-level-text').innerText = '100%';
+            renderSolutionCanvas();
+        }
+
+        /* ==========================================================================
+           REPORTS & STATISTICAL ANALYSIS
+           ========================================================================== */
+
+        function renderReport() {
+            document.getElementById('report-date').innerText = new Date().toLocaleDateString();
+            document.getElementById('report-material').innerText = boardSettings.material;
+
+            const totalBoards = optimizationResult.boards.length;
+            document.getElementById('rep-kpi-boards').innerText = totalBoards;
+            document.getElementById('rep-kpi-board-dim').innerText = `${boardSettings.length} × ${boardSettings.width} mm`;
+
+            let avgYield = 0;
+            let avgWaste = 0;
+            if (totalBoards > 0) {
+                avgYield = (optimizationResult.boards.reduce((acc, b) => acc + b.yieldPercent, 0) / totalBoards).toFixed(1);
+                avgWaste = (100 - avgYield).toFixed(1);
+            }
+
+            document.getElementById('rep-kpi-yield').innerText = avgYield + '%';
+            document.getElementById('rep-kpi-waste').innerText = avgWaste + '%';
+            document.getElementById('rep-kpi-placed').innerText = `${optimizationResult.placedPieces} / ${optimizationResult.totalPieces}`;
+
+            // Detailed Breakdown List
+            const listContainer = document.getElementById('report-boards-list');
+            listContainer.innerHTML = '';
+
+            optimizationResult.boards.forEach(b => {
+                const div = document.createElement('div');
+                div.className = 'p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50';
+
+                div.innerHTML = `
+                    <div class="space-y-1">
+                        <div class="font-bold text-slate-800 text-sm">
+                            <i class="fa-solid fa-layer-group text-amber-600 mr-2"></i> Tablero #${b.boardNum}
+                        </div>
+                        <div class="text-slate-500 text-xs">
+                            Contiene <strong>${b.pieces.length}</strong> piezas de corte y <strong>${b.retazos.length}</strong> retazos reutilizables.
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4 font-mono text-xs">
+                        <span class="px-2.5 py-1 bg-blue-100 text-blue-800 rounded font-bold">
+                            Aprovechamiento: ${b.yieldPercent.toFixed(1)}%
+                        </span>
+                        <span class="px-2.5 py-1 bg-red-100 text-red-800 rounded font-bold">
+                            Merma: ${b.wastePercent.toFixed(1)}%
+                        </span>
+                    </div>
+                `;
+                listContainer.appendChild(div);
+            });
+
+            // Unplaced pieces warning
+            const unplacedBox = document.getElementById('report-unplaced-box');
+            const unplacedList = document.getElementById('report-unplaced-list');
+
+            if (optimizationResult.unplaced && optimizationResult.unplaced.length > 0) {
+                unplacedBox.classList.remove('hidden');
+                unplacedList.innerHTML = optimizationResult.unplaced.map(u =>
+                    `• ${u.desc1} (${u.length} × ${u.width} mm)`
+                ).join('<br>');
+            } else {
+                unplacedBox.classList.add('hidden');
+            }
+        }
+
+        /* ==========================================================================
+           DATA IMPORT / EXPORT (JSON & CSV)
+           ========================================================================== */
+
+        function exportJSON() {
+            const data = {
+                boardSettings: boardSettings,
+                cutPieces: cutPieces
+            };
+            const jsonStr = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Optiplanning_Proyecto_${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Proyecto guardado como JSON');
+        }
+
+        function triggerJSONImport() {
+            document.getElementById('json-input').click();
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.boardSettings) boardSettings = data.boardSettings;
+                    if (data.cutPieces) cutPieces = data.cutPieces;
+
+                    // Update UI input controls
+                    document.getElementById('board-length').value = boardSettings.length;
+                    document.getElementById('board-width').value = boardSettings.width;
+                    document.getElementById('board-trim').value = boardSettings.trim;
+                    document.getElementById('board-kerf').value = boardSettings.kerf;
+                    document.getElementById('board-material').value = boardSettings.material;
+
+                    renderPiecesTable();
+                    runOptimization();
+                    showToast('Proyecto JSON cargado exitosamente');
+                } catch (err) {
+                    showToast('Error al leer el archivo JSON', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function exportCSV() {
+            let csv = 'Cantidad,Largura,Anchura,Veta,CantoSup,CantoInf,CantoIzq,CantoDer,Desc1,Desc2\n';
+            cutPieces.forEach(p => {
+                csv += `${p.qty},${p.length},${p.width},${p.grain},${p.edgeTop},${p.edgeBot},${p.edgeLeft},${p.edgeRight},"${p.desc1}","${p.desc2}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Optiplanning_Piezas_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Lista exportada como CSV');
+        }
+
+        /* ==========================================================================
+           FULLSCREEN & MODALS
+           ========================================================================== */
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        function showAboutModal() {
+            document.getElementById('about-modal').classList.remove('hidden');
+        }
+
+        function closeAboutModal() {
+            document.getElementById('about-modal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
